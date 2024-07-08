@@ -17,6 +17,8 @@ from langdetect import detect
 
 app = FastAPI()
 
+load_dotenv()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Allow all origins
