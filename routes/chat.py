@@ -1,34 +1,21 @@
 import json
 import os
-from dotenv import load_dotenv
 from typing import Union
-from fastapi import FastAPI, File, UploadFile, Form, Header
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, File, UploadFile, Form, Header
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from langchain.agents import create_sql_agent
 from langchain.agents.agent_toolkits import SQLDatabaseToolkit
 from langchain.agents.agent_types import AgentType
-from langchain.chat_models import ChatOpenAI
-from langchain.sql_database import SQLDatabase
+from langchain_community.chat_models import ChatOpenAI
+from langchain_community.utilities.sql_database import SQLDatabase
 from langchain.prompts.chat import ChatPromptTemplate
 from sqlalchemy import create_engine
 from openai import OpenAI
 from langdetect import detect,LangDetectException
 import jwt
 
-app = FastAPI()
-
-load_dotenv()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
-    allow_headers=["*"],  # Allow all headers
-)
+router = APIRouter()
 
 class MessageResponse(BaseModel):
     text: str
@@ -36,17 +23,9 @@ class MessageResponse(BaseModel):
 
 class Item(BaseModel):
     items: list[MessageResponse]
+    q: str
     
-SECRET_KEY = "SDLFISEJFSNnsvisn2oi32no2nf"
 ACCESS_TOKEN_EXPIRE_MINUTE = 800
-dummy_user = {
-    "username":"pawat",
-    "password":"password"
-}
-
-class LoginClass(BaseModel):
-    username:str
-    password:str
     
 def upload(files: list[UploadFile]):
 	try: 
@@ -66,7 +45,7 @@ def detect_language(text):
         # print(f"Error detecting language: {e}")
         return "unknown"
     
-@app.post("/")
+@router.post("/")
 async def uploadfile(files: list[UploadFile],items:str = Form(...)):
     items = json.loads(items)
     prepare = [
@@ -75,9 +54,10 @@ async def uploadfile(files: list[UploadFile],items:str = Form(...)):
         You are a very intelligent AI assistant who is an expert in identifying relevant questions from the user and converting them into SQL queries to generate correct answers.
         And if the user asks something related to the context below, please use the context below to write the SQL queries.
         Context:
-        You must query against the connected database, which has a total of 2 tables: users and country.
+        You must query against the connected database, which has a total of 3 tables: USERS and COUNTRY and ACTIVITIES.
         The USERS table has columns username, age, and country. It provides user information.
-        The COUNTRY table has columns Id and country_name. It provides country-specific information.
+        The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
+        The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
         As an expert, you must use joins, updates, and inserts whenever required.
         """
         )
@@ -117,7 +97,7 @@ async def uploadfile(files: list[UploadFile],items:str = Form(...)):
     result = agent.run(prompt.format_prompt(question=translation.text))
     return (result)
 
-@app.post("/text/")
+@router.post("/text/")
 def read_text(items:Item = [], q: str = None):
     prepare = [
         (
@@ -125,9 +105,10 @@ def read_text(items:Item = [], q: str = None):
         You are a very intelligent AI assistant who is an expert in identifying relevant questions from the user and converting them into SQL queries to generate correct answers.
         And if the user asks something related to the context below, please use the context below to write the SQL queries.
         Context:
-        You must query against the connected database, which has a total of 2 tables: users and country.
+        You must query against the connected database, which has a total of 3 tables: USERS and COUNTRY and ACTIVITIES.
         The USERS table has columns username, age, and country. It provides user information.
-        The COUNTRY table has columns Id and country_name. It provides country-specific information.
+        The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
+        The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
         As an expert, you must use joins, updates, and inserts whenever required.
         """
         )
@@ -140,7 +121,7 @@ def read_text(items:Item = [], q: str = None):
     lang = detect_language(q)
 	
     if(lang == 'th'):
-        q = q +'ตอบเป็นภาษาไทย'
+        items.q = items.q +'ตอบเป็นภาษาไทย'
     prepare.append(("user","{question}"))
     
     cs="mysql+pymysql://idewofktlttgg7nz:d1yjz40wualr5w69@dcrhg4kh56j13bnu.cbetxkdyhwsb.us-east-1.rds.amazonaws.com:3306/aoe1adeab51zt65c"
@@ -154,21 +135,13 @@ def read_text(items:Item = [], q: str = None):
     result = agent.run(prompt.format_prompt(question=q))
     return (result)
     
-@app.get("/id/{id}")
+@router.get("/id/{id}")
 def read_id(id:int,q:Union[str,None] = None):
     return {"id":id,"q":q}
 
-@app.post("/login")
-async def login(login_item:LoginClass):
-    data=jsonable_encoder(login_item)
-    if dummy_user['username'] == data['username'] and dummy_user['password'] == data['password']:
-        encode_jwt = jwt.encode(data,SECRET_KEY,algorithm="HS256")
-        return {"token":encode_jwt}
-    else:
-        return {"token":"failed"}
-@app.post("/auth")
+@router.post("/auth")
 async def auth(Authorization: str | None = Header(default=None),items:Item = [], q: str = None):
-    decode_jwt = jwt.decode(Authorization, SECRET_KEY, algorithms=["HS256"])
+    decode_jwt = jwt.decode(Authorization, os.getenv('SECRET_KEY'), algorithms=["HS256"])
     # return {"decode":decode_jwt['username'],"token":Authorization}
     
     prepare = [
@@ -178,9 +151,10 @@ async def auth(Authorization: str | None = Header(default=None),items:Item = [],
         And if the user asks something related to the context below, please use the context below to write the SQL queries.
         Context:
         this question is from user {decode_jwt['username']}
-        You must query against the connected database, which has a total of 2 tables: users and country.
+        You must query against the connected database, which has a total of 3 tables: USERS and COUNTRY and ACTIVITIES.
         The USERS table has columns username, age, and country. It provides user information.
-        The COUNTRY table has columns Id and country_name. It provides country-specific information.
+        The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
+        The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
         As an expert, you must use joins, updates, and inserts whenever required and you can not show user's data from anyone except his data
         """
         )
@@ -193,7 +167,7 @@ async def auth(Authorization: str | None = Header(default=None),items:Item = [],
     lang = detect_language(q)
 	
     if(lang == 'th'):
-        q = q +'ตอบเป็นภาษาไทย'
+        items.q = items.q +'ตอบเป็นภาษาไทย'
     prepare.append(("user","{question}"))
     
     cs="mysql+pymysql://idewofktlttgg7nz:d1yjz40wualr5w69@dcrhg4kh56j13bnu.cbetxkdyhwsb.us-east-1.rds.amazonaws.com:3306/aoe1adeab51zt65c"
@@ -207,12 +181,10 @@ async def auth(Authorization: str | None = Header(default=None),items:Item = [],
     result = agent.run(prompt.format_prompt(question=q))
     return (result)
 
-@app.post("/auth/voice")
+@router.post("/auth/voice")
 async def authUploadfile(files: list[UploadFile],items:str = Form(...),Authorization: str | None = Header(default=None)):
     items = json.loads(items)
-    decode_jwt = jwt.decode(Authorization, SECRET_KEY, algorithms=["HS256"])
-    print('+++++++++++++++++++')
-    print(decode_jwt['username'])
+    decode_jwt = jwt.decode(Authorization, os.getenv('SECRET_KEY'), algorithms=["HS256"])
     prepare = [
         (
         "system", f"""
@@ -220,9 +192,10 @@ async def authUploadfile(files: list[UploadFile],items:str = Form(...),Authoriza
         And if the user asks something related to the context below, please use the context below to write the SQL queries.
         Context:
         this question is from user {decode_jwt['username']}
-        You must query against the connected database, which has a total of 2 tables: users and country.
+        You must query against the connected database, which has a total of 3 tables: USERS and COUNTRY and ACTIVITIES.
         The USERS table has columns username, age, and country. It provides user information.
-        The COUNTRY table has columns Id and country_name. It provides country-specific information.
+        The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
+        The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
         As an expert, you must use joins, updates, and inserts whenever required and you can not show user's data from anyone except his data
         """
         )

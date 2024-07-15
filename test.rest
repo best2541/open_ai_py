@@ -1,0 +1,25 @@
+post http://localhost:8000/users/newusers
+Content-Type: application/json
+
+{
+    "username" : "test",
+    "password" : "password",
+    "age" : 28,
+    "country" : 2
+}
+###
+GET http://localhost:8000/users?limit=20
+Content-Type: application/json
+
+{
+
+}
+###
+POST http://localhost:8000/users/login
+Content-Type: application/json
+
+{
+    "username": "test",
+    "password": "password"
+}
+###
