@@ -58,7 +58,7 @@ async def uploadfile(files: list[UploadFile],items:str = Form(...)):
         The USERS table has columns username, age, and country. It provides user information.
         The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
         The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
-        As an expert, you must use joins, updates, and inserts whenever required.
+        As an expert, you must use joins, updates, and inserts whenever required make query fastest.
         """
         )
     ]
@@ -109,7 +109,7 @@ def read_text(items:Item = [], q: str = None):
         The USERS table has columns username, age, and country. It provides user information.
         The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
         The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
-        As an expert, you must use joins, updates, and inserts whenever required.
+        As an expert, you must use joins, updates, and inserts whenever required make query fastest.
         """
         )
     ]
@@ -155,7 +155,7 @@ async def auth(Authorization: str | None = Header(default=None),items:Item = [],
         The USERS table has columns username, age, and country. It provides user information.
         The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
         The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
-        As an expert, you must use joins, updates, and inserts whenever required and you can not show user's data from anyone except his data
+        As an expert, you must use joins, updates, and inserts whenever required and you can not show user's data from anyone except his data make query fastest.
         """
         )
     ]
@@ -196,7 +196,7 @@ async def authUploadfile(files: list[UploadFile],items:str = Form(...),Authoriza
         The USERS table has columns username, age, and country. It provides user information.
         The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
         The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
-        As an expert, you must use joins, updates, and inserts whenever required and you can not show user's data from anyone except his data
+        As an expert, you must use joins, updates, and inserts whenever required and you can not show user's data from anyone except his data make query fastest.
         """
         )
     ]
