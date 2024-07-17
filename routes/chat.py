@@ -11,9 +11,14 @@ from langchain_community.chat_models import ChatOpenAI
 from langchain_community.utilities.sql_database import SQLDatabase
 from langchain.prompts.chat import ChatPromptTemplate
 from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 from openai import OpenAI
 from langdetect import detect,LangDetectException
 import jwt
+
+DATABASE_URL = "mysql+pymysql://idewofktlttgg7nz:d1yjz40wualr5w69@dcrhg4kh56j13bnu.cbetxkdyhwsb.us-east-1.rds.amazonaws.com:3306/aoe1adeab51zt65c"
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 router = APIRouter()
 
@@ -58,7 +63,9 @@ async def uploadfile(files: list[UploadFile],items:str = Form(...)):
         The USERS table has columns username, age, and country. It provides user information.
         The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
         The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
-        As an expert, you must use joins, updates, and inserts whenever required make query fastest.
+        As an expert, you must use joins, updates, and inserts whenever required.
+        make query performance fastest as you can.
+        tell user a result even you got nothing tell him is nothing.
         """
         )
     ]
@@ -93,12 +100,12 @@ async def uploadfile(files: list[UploadFile],items:str = Form(...)):
     sql_toolkit=SQLDatabaseToolkit(db=db,llm=llm)
     sql_toolkit.get_tools()
     prompt=ChatPromptTemplate.from_messages(prepare)
-    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True,max_execution_time=100,max_iterations=1000)
-    result = agent.run(prompt.format_prompt(question=translation.text))
+    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=False,max_execution_time=60,max_iterations=50,handle_parsing_errors=True)
+    result = agent.invoke(prompt.format_prompt(question=translation.text))
     return (result)
 
 @router.post("/text/")
-def read_text(items:Item = [], q: str = None):
+def read_text(items:Item = []):
     prepare = [
         (
         "system", """
@@ -109,7 +116,9 @@ def read_text(items:Item = [], q: str = None):
         The USERS table has columns username, age, and country. It provides user information.
         The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
         The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
-        As an expert, you must use joins, updates, and inserts whenever required make query fastest.
+        As an expert, you must use joins, updates, and inserts whenever required.
+        make query performance fastest as you can.
+        tell user a result even you got nothing tell him is nothing.
         """
         )
     ]
@@ -118,7 +127,7 @@ def read_text(items:Item = [], q: str = None):
             prepare.append(('user',x.text))
         else:
             prepare.append(('ai',x.text))
-    lang = detect_language(q)
+    lang = detect_language(items.q)
 	
     if(lang == 'th'):
         items.q = items.q +'ตอบเป็นภาษาไทย'
@@ -131,8 +140,8 @@ def read_text(items:Item = [], q: str = None):
     sql_toolkit=SQLDatabaseToolkit(db=db,llm=llm)
     sql_toolkit.get_tools()
     prompt=ChatPromptTemplate.from_messages(prepare)
-    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True,max_execution_time=100,max_iterations=1000)
-    result = agent.run(prompt.format_prompt(question=q))
+    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=False,max_execution_time=60,max_iterations=50,handle_parsing_errors=True)
+    result = agent.invoke(prompt.format_prompt(question=items.q))
     return (result)
     
 @router.get("/id/{id}")
@@ -140,9 +149,8 @@ def read_id(id:int,q:Union[str,None] = None):
     return {"id":id,"q":q}
 
 @router.post("/auth")
-async def auth(Authorization: str | None = Header(default=None),items:Item = [], q: str = None):
+async def auth(Authorization: str | None = Header(default=None),items:Item = []):
     decode_jwt = jwt.decode(Authorization, os.getenv('SECRET_KEY'), algorithms=["HS256"])
-    # return {"decode":decode_jwt['username'],"token":Authorization}
     
     prepare = [
         (
@@ -155,7 +163,9 @@ async def auth(Authorization: str | None = Header(default=None),items:Item = [],
         The USERS table has columns username, age, and country. It provides user information.
         The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
         The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
-        As an expert, you must use joins, updates, and inserts whenever required and you can not show user's data from anyone except his data make query fastest.
+        As an expert, you must use joins, updates, and inserts whenever required and you can not show user's data from anyone except his data.
+        make query performance fastest as you can.
+        tell user a result even you got nothing tell him is nothing.
         """
         )
     ]
@@ -164,7 +174,7 @@ async def auth(Authorization: str | None = Header(default=None),items:Item = [],
             prepare.append(('user',x.text))
         else:
             prepare.append(('ai',x.text))
-    lang = detect_language(q)
+    lang = detect_language(items.q)
 	
     if(lang == 'th'):
         items.q = items.q +'ตอบเป็นภาษาไทย'
@@ -177,8 +187,8 @@ async def auth(Authorization: str | None = Header(default=None),items:Item = [],
     sql_toolkit=SQLDatabaseToolkit(db=db,llm=llm)
     sql_toolkit.get_tools()
     prompt=ChatPromptTemplate.from_messages(prepare)
-    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True,max_execution_time=100,max_iterations=1000)
-    result = agent.run(prompt.format_prompt(question=q))
+    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.OPENAI_FUNCTIONS,verbose=False,max_execution_time=60,max_iterations=50,handle_parsing_errors=True)
+    result = agent.invoke(prompt.format_prompt(question=items.q))
     return (result)
 
 @router.post("/auth/voice")
@@ -196,7 +206,9 @@ async def authUploadfile(files: list[UploadFile],items:str = Form(...),Authoriza
         The USERS table has columns username, age, and country. It provides user information.
         The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
         The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
-        As an expert, you must use joins, updates, and inserts whenever required and you can not show user's data from anyone except his data make query fastest.
+        As an expert, you must use joins, updates, and inserts whenever required and you can not show user's data from anyone except his data.
+        make query performance fastest as you can.
+        tell user a result even you got nothing tell him is nothing.
         """
         )
     ]
@@ -231,6 +243,6 @@ async def authUploadfile(files: list[UploadFile],items:str = Form(...),Authoriza
     sql_toolkit=SQLDatabaseToolkit(db=db,llm=llm)
     sql_toolkit.get_tools()
     prompt=ChatPromptTemplate.from_messages(prepare)
-    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True,max_execution_time=100,max_iterations=1000)
-    result = agent.run(prompt.format_prompt(question=translation.text))
+    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=False,max_execution_time=60,max_iterations=50,handle_parsing_errors=True)
+    result = agent.invoke(prompt.format_prompt(question=translation.text))
     return (result)
