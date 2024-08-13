@@ -93,7 +93,7 @@ async def uploadfile(files: list[UploadFile],items:str = Form(...)):
         translation.text = translation.text +'ตอบเป็นภาษาไทย'
     prepare.append(("user","{question}"))
     
-    cs=DATABASE_URL
+    cs=os.getenv('SOURCE')
     # db_engine = create_engine(connectionString)
     db_engine=create_engine(cs)
     db=SQLDatabase(db_engine)
@@ -134,7 +134,7 @@ def read_text(items:Item = []):
         items.q = items.q +'ตอบเป็นภาษาไทย'
     prepare.append(("user","{question}"))
     
-    cs=DATABASE_URL
+    cs=os.getenv('SOURCE')
     db_engine=create_engine(cs)
     db=SQLDatabase(db_engine)
     llm=ChatOpenAI(streaming=True,temperature=0.0,model="gpt-4",openai_api_key=os.getenv('OPEN_API_KEY'))
@@ -181,7 +181,7 @@ async def auth(Authorization: str | None = Header(default=None),items:Item = [])
         items.q = items.q +'ตอบเป็นภาษาไทย'
     prepare.append(("user","{question}"))
     
-    cs=DATABASE_URL
+    cs=os.getenv('SOURCE')
     db_engine=create_engine(cs)
     db=SQLDatabase(db_engine)
     llm=ChatOpenAI(streaming=True,temperature=0.0,model="gpt-4",openai_api_key=os.getenv('OPEN_API_KEY'))
@@ -236,7 +236,7 @@ async def authUploadfile(files: list[UploadFile],items:str = Form(...),Authoriza
         translation.text = translation.text +'ตอบเป็นภาษาไทย'
     prepare.append(("user","{question}"))
     
-    cs=DATABASE_URL
+    cs=os.getenv('SOURCE')
     # db_engine = create_engine(connectionString)
     db_engine=create_engine(cs)
     db=SQLDatabase(db_engine)
