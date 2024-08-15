@@ -149,10 +149,6 @@ def line_send_text(text:str, to:str):
         print("Message sent successfully!")
             
 def sendLine(db: Session, item:Dict[str,Any]):
-    # result = insert_log(db=db, user_id='user_id', detail="meeting")
-    # print(result)
-    # return 'test'
-    
     result = ''
     for event in item['events']:
         user_id = event["source"]["userId"]
@@ -164,7 +160,7 @@ def sendLine(db: Session, item:Dict[str,Any]):
                 json_object = json.loads(log.detail)
             except json.JSONDecodeError as error:
                 json_object = ['','','','']
-            print(json_object)
+
             if event["type"] == "message" and event["message"]["type"] == "audio":
                 message_id = event["message"]["id"]
                 try:
@@ -179,7 +175,7 @@ def sendLine(db: Session, item:Dict[str,Any]):
                             You must query against the connected database, which has a total of 3 tables: USERS and COUNTRY and ACTIVITIES.
                             The USERS table has columns username, age, country and user_id. It provides user information.
                             The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
-                        
+                            The ACTIVITIES table has columns id and user_id (foreign key with USERS table user_id column), topic and start_date_time(user will give date,time to you if user don't give you a date what say it today, if user don't give you the time you can ask for it). It provides activities to do each day.
                             As an expert, you don't have to create table, you must use joins, updates, and inserts whenever required.
                             make query performance fastest as you can.
                             tell user a result even you got nothing tell him is nothing.
@@ -195,7 +191,7 @@ def sendLine(db: Session, item:Dict[str,Any]):
                     file=audio_file,
                     language='th'
                     )
-        
+
                     lang = detect_language(translation.text)
                     if(lang == 'th'):
                         translation.text = translation.text +'ตอบเป็นภาษาไทย'
@@ -209,15 +205,14 @@ def sendLine(db: Session, item:Dict[str,Any]):
                     sql_toolkit=SQLDatabaseToolkit(db=_db,llm=llm)
                     sql_toolkit.get_tools()
                     prompt=ChatPromptTemplate.from_messages(prepare)
-                    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True,max_execution_time=30,max_iterations=10,handle_parsing_errors=True)
+                    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=False,max_execution_time=30,max_iterations=10,handle_parsing_errors=True)
                     result = agent.invoke(prompt.format_prompt(question=translation.text))
                 except Exception as e:
                     print('ERROR')
                     # raise HTTPException(status_code=500, detail=str(e))
+
             if event["type"] == "message" and event["message"]["type"] == "text":
                 text = item['events'][0]['message']['text']
-                print('log_test')
-                print(json_object[3])
                 prepare = [
                     (
                         "system", f"""
@@ -225,10 +220,11 @@ def sendLine(db: Session, item:Dict[str,Any]):
                         And if the user asks something related to the context below, please use the context below to write the SQL queries.
                         Context:
                         My user_id is '{user_id}'
-                        You must query against the connected database, which has a total of 3 tables: USERS and COUNTRY and ACTIVITIES.
-                        The USERS table has columns username, age, country and user_id. It provides user information.
-                        The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
-                        The ACTIVITIES table has columns id and user_id (foreign key with USERS table user_id column), topic and start_date_time(user will give date,time to you if user don't give you a date what say it today, if user don't give you the time you can ask for it). It provides activities to do each day.
+                        You must query against the connected database, which has a total of 4 tables: USERS and COUNTRY, ACTIVITIES and REMIND.
+                        The USERS table has columns username(varchar(100)), age(int), country(int join with COUNTRY table) and user_id(varchar(255)). It provides user information.
+                        The COUNTRY table has columns id(foreign key with USERS table country column) and country_name(varchar(100)). It provides country-specific information.
+                        The ACTIVITIES table has columns id, user_id (foreign key with USERS table user_id column), topic and start_date_time(user will give date,time to you if user don't give you a date what say it today, if user don't give you the time you can ask for it). It provides activities to do each day.
+                        The REMIND table has columns id(int auto_increment), user_id(varchar(255) foreign key with USERS table user_id column), topic(varchar(100)) and date_frequency(int default = 0), day_frequency(int), hour_frequency(int), minute_frequency(int), routine(boolean), sended(boolean)
                         As an expert, you don't have to create table, you must updates, and inserts whenever required avoid using joins as much as possible.
                         make query performance fastest as you can.
                         tell user a result even you got nothing tell him is nothing.
@@ -251,7 +247,7 @@ def sendLine(db: Session, item:Dict[str,Any]):
                 sql_toolkit=SQLDatabaseToolkit(db=_db,llm=llm)
                 sql_toolkit.get_tools()
                 prompt=ChatPromptTemplate.from_messages(prepare)
-                agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True,max_execution_time=60,max_iterations=10,handle_parsing_errors=True)
+                agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=False,max_execution_time=60,max_iterations=10,handle_parsing_errors=True)
                 result = agent.invoke(prompt.format_prompt(question=text))
         
             line_send_text(text=result['output'], to=item['events'][0]['source']['userId'])
@@ -279,11 +275,11 @@ def sendLine(db: Session, item:Dict[str,Any]):
                 ]
 
                 lang = detect_language(text)
-        
+
                 if(lang == 'th'):
                     text = text +'ตอบเป็นภาษาไทย'
                 prepare.append(("user","{question}"))
-        
+
                 cs=os.getenv('SOURCE')
                 db_engine=create_engine(cs)
                 _db=SQLDatabase(db_engine)
@@ -291,15 +287,15 @@ def sendLine(db: Session, item:Dict[str,Any]):
                 sql_toolkit=SQLDatabaseToolkit(db=_db,llm=llm)
                 sql_toolkit.get_tools()
                 prompt=ChatPromptTemplate.from_messages(prepare)
-                agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True,max_execution_time=60,max_iterations=10,handle_parsing_errors=True)
+                agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=False,max_execution_time=60,max_iterations=10,handle_parsing_errors=True)
                 result = agent.invoke(prompt.format_prompt(question=text))
                 line_send_text(text=result['output'], to=item['events'][0]['source']['userId'])
         input = ''
         for test in result['input']:
             input = test[1][1]
-        
+ 
     insert_log(db=db, user_id=user_id, detail=f'["user","{input.content}","ai","{result['output']}"]')
-                    
+         
     return 'item'
 
 def read_text(items:Item = []):
@@ -337,6 +333,6 @@ def read_text(items:Item = []):
     sql_toolkit=SQLDatabaseToolkit(db=db,llm=llm)
     sql_toolkit.get_tools()
     prompt=ChatPromptTemplate.from_messages(prepare)
-    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True,max_execution_time=30,max_iterations=10,handle_parsing_errors=True)
+    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=False,max_execution_time=30,max_iterations=10,handle_parsing_errors=True)
     result = agent.invoke(prompt.format_prompt(question=items.q))
     return (result)
