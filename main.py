@@ -49,5 +49,6 @@ def getStatus():
     return "OK"
 @app.post('/')
 def post(item:Dict[str,Any], db: Session = Depends(get_db)):
-    result = crud.sendLine(db=db, item=item)
+    result = crud.test(db=db, item=item)
+    # result = crud.sendLine(db=db, item=item)
     return result
