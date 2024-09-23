@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean
+from sqlalchemy import Column, Integer, String, TIMESTAMP, Boolean, Text
 from utilites.database import Base
 
 class User(Base):
@@ -28,7 +28,7 @@ class Logs(Base):
     
     id = Column(Integer, primary_key=True)
     user_id = Column(String(255))
-    detail = Column(String(255))
+    detail = Column(Text)
     create_date = Column(TIMESTAMP)
 
 class Remind(Base):
@@ -37,9 +37,9 @@ class Remind(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(String(255), nullable=False)
     topic = Column(String(100), nullable=False)
-    date_frequency = Column(Integer)
+    appointment_date = Column(Integer)
     day_frequency = Column(Integer)
-    hour_frequency = Column(Integer)
-    minute_frequency = Column(Integer)
+    appointment_hour = Column(Integer)
+    appointment_minute = Column(Integer)
     routine = Column(Boolean) 
     sended = Column(Boolean)

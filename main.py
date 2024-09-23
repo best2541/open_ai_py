@@ -1,11 +1,16 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
-from routes.chat import router
+from routes.chat import router as chat_router
 from routes.users import router as users_router
 from routes.setting import router as setting_router
+from routes.static import router as static_router
+from routes.google import router as google_router
 from typing import Dict, Any
-from controllers import crud
+from controllers import crud, google
 from sqlalchemy.orm import Session
 from utilites.database import SessionLocal
 
@@ -34,8 +39,21 @@ app.add_middleware(
 
 # Include the router
 app.include_router(users_router, prefix="/users")
-app.include_router(router, prefix='/chat')
+app.include_router(chat_router, prefix='/chat')
 app.include_router(setting_router, prefix='/setting')
+app.include_router(static_router, prefix='/static')
+app.include_router(google_router, prefix='/google')
+
+# Initialize the Jinja2Templates object
+templates = Jinja2Templates(directory="templates")
+
+# # Serve static files (optional)
+# app.mount("/static", StaticFiles(directory="templates"), name="static")
+
+# Route to render HTML
+@app.get("/", response_class=HTMLResponse)
+async def read_item(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request, "name": "FastAPI"})
 
 @app.get('/webhook')
 def test():
@@ -49,6 +67,5 @@ def getStatus():
     return "OK"
 @app.post('/')
 def post(item:Dict[str,Any], db: Session = Depends(get_db)):
-    result = crud.test(db=db, item=item)
-    # result = crud.sendLine(db=db, item=item)
-    return result
+    crud.test(db=db,item=item)
+    return 'result'

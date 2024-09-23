@@ -5,11 +5,9 @@ from fastapi import APIRouter, File, UploadFile, Form, Header
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 from langchain.agents import create_sql_agent
-# from langchain.agents.agent_toolkits import SQLDatabaseToolkit
-from langchain_community.agent_toolkits.sql.toolkit import SQLDatabaseToolkit
+from langchain.agents.agent_toolkits import SQLDatabaseToolkit
 from langchain.agents.agent_types import AgentType
-# from langchain_community.chat_models import ChatOpenAI
-from langchain_openai import ChatOpenAI
+from langchain_community.chat_models import ChatOpenAI
 from langchain_community.utilities.sql_database import SQLDatabase
 from langchain.prompts.chat import ChatPromptTemplate
 from sqlalchemy import create_engine
@@ -18,9 +16,10 @@ from openai import OpenAI
 from langdetect import detect,LangDetectException
 import jwt
 
-DATABASE_URL = os.getenv('SOURCE')
+DATABASE_URL = "mysql+pymysql://idewofktlttgg7nz:d1yjz40wualr5w69@dcrhg4kh56j13bnu.cbetxkdyhwsb.us-east-1.rds.amazonaws.com:3306/aoe1adeab51zt65c"
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-        
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
 router = APIRouter()
 
 class MessageResponse(BaseModel):
@@ -61,10 +60,10 @@ async def uploadfile(files: list[UploadFile],items:str = Form(...)):
         And if the user asks something related to the context below, please use the context below to write the SQL queries.
         Context:
         You must query against the connected database, which has a total of 3 tables: USERS and COUNTRY and ACTIVITIES.
-        The USERS table has columns username, age, country and user_id. It provides user information.
+        The USERS table has columns username, age, and country. It provides user information.
         The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
-        The ACTIVITIES table has columns id and user_id (foreign key with USERS table user_id column), topic and start_date. It provides activities to do each day.  
-        As an expert, you don't have to create table, you must use updates, and inserts whenever required avoid using joins as much as possible.
+        The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
+        As an expert, you must use joins, updates, and inserts whenever required.
         make query performance fastest as you can.
         tell user a result even you got nothing tell him is nothing.
         """
@@ -93,15 +92,15 @@ async def uploadfile(files: list[UploadFile],items:str = Form(...)):
         translation.text = translation.text +'ตอบเป็นภาษาไทย'
     prepare.append(("user","{question}"))
     
-    cs=os.getenv('SOURCE')
+    cs="mysql+pymysql://idewofktlttgg7nz:d1yjz40wualr5w69@dcrhg4kh56j13bnu.cbetxkdyhwsb.us-east-1.rds.amazonaws.com:3306/aoe1adeab51zt65c"
     # db_engine = create_engine(connectionString)
     db_engine=create_engine(cs)
     db=SQLDatabase(db_engine)
-    llm=ChatOpenAI(streaming=True,temperature=0.0,model="gpt-4",openai_api_key=os.getenv('OPEN_API_KEY'))
+    llm=ChatOpenAI(temperature=0.0,model="gpt-4",openai_api_key=os.getenv('OPEN_API_KEY'))
     sql_toolkit=SQLDatabaseToolkit(db=db,llm=llm)
     sql_toolkit.get_tools()
     prompt=ChatPromptTemplate.from_messages(prepare)
-    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True,max_execution_time=30,max_iterations=10,handle_parsing_errors=True)
+    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=False,max_execution_time=60,max_iterations=50,handle_parsing_errors=True)
     result = agent.invoke(prompt.format_prompt(question=translation.text))
     return (result)
 
@@ -114,10 +113,10 @@ def read_text(items:Item = []):
         And if the user asks something related to the context below, please use the context below to write the SQL queries.
         Context:
         You must query against the connected database, which has a total of 3 tables: USERS and COUNTRY and ACTIVITIES.
-        The USERS table has columns username, age, country and user_id. It provides user information.
+        The USERS table has columns username, age, and country. It provides user information.
         The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
-        The ACTIVITIES table has columns id and user_id (foreign key with USERS table user_id column), topic and start_date. It provides activities to do each day.  
-        As an expert, you don't have to create table, you must use updates, and inserts whenever required avoid using joins as much as possible.
+        The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
+        As an expert, you must use joins, updates, and inserts whenever required.
         make query performance fastest as you can.
         tell user a result even you got nothing tell him is nothing.
         """
@@ -134,14 +133,14 @@ def read_text(items:Item = []):
         items.q = items.q +'ตอบเป็นภาษาไทย'
     prepare.append(("user","{question}"))
     
-    cs=os.getenv('SOURCE')
+    cs="mysql+pymysql://idewofktlttgg7nz:d1yjz40wualr5w69@dcrhg4kh56j13bnu.cbetxkdyhwsb.us-east-1.rds.amazonaws.com:3306/aoe1adeab51zt65c"
     db_engine=create_engine(cs)
     db=SQLDatabase(db_engine)
-    llm=ChatOpenAI(streaming=True,temperature=0.0,model="gpt-4",openai_api_key=os.getenv('OPEN_API_KEY'))
+    llm=ChatOpenAI(temperature=0.0,model="gpt-4",openai_api_key=os.getenv('OPEN_API_KEY'))
     sql_toolkit=SQLDatabaseToolkit(db=db,llm=llm)
     sql_toolkit.get_tools()
     prompt=ChatPromptTemplate.from_messages(prepare)
-    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True,max_execution_time=30,max_iterations=10,handle_parsing_errors=True)
+    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=False,max_execution_time=60,max_iterations=50,handle_parsing_errors=True)
     result = agent.invoke(prompt.format_prompt(question=items.q))
     return (result)
     
@@ -159,12 +158,12 @@ async def auth(Authorization: str | None = Header(default=None),items:Item = [])
         You are a very intelligent AI assistant who is an expert in identifying relevant questions from the user and converting them into SQL queries to generate correct answers.
         And if the user asks something related to the context below, please use the context below to write the SQL queries.
         Context:
-        I am {decode_jwt['username']}
+        this question is from user {decode_jwt['username']}
         You must query against the connected database, which has a total of 3 tables: USERS and COUNTRY and ACTIVITIES.
-        The USERS table has columns username, age, country and user_id. It provides user information.
+        The USERS table has columns username, age, and country. It provides user information.
         The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
-        The ACTIVITIES table has columns id and user_id (foreign key with USERS table user_id column), topic and start_date. It provides activities to do each day.
-        As an expert, you don't have to create table, you must use updates, and inserts whenever required avoid using joins as much as possible and you can not show user's data from anyone except my data.
+        The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
+        As an expert, you must use joins, updates, and inserts whenever required and you can not show user's data from anyone except his data.
         make query performance fastest as you can.
         tell user a result even you got nothing tell him is nothing.
         """
@@ -181,14 +180,14 @@ async def auth(Authorization: str | None = Header(default=None),items:Item = [])
         items.q = items.q +'ตอบเป็นภาษาไทย'
     prepare.append(("user","{question}"))
     
-    cs=os.getenv('SOURCE')
+    cs="mysql+pymysql://idewofktlttgg7nz:d1yjz40wualr5w69@dcrhg4kh56j13bnu.cbetxkdyhwsb.us-east-1.rds.amazonaws.com:3306/aoe1adeab51zt65c"
     db_engine=create_engine(cs)
     db=SQLDatabase(db_engine)
-    llm=ChatOpenAI(streaming=True,temperature=0.0,model="gpt-4",openai_api_key=os.getenv('OPEN_API_KEY'))
+    llm=ChatOpenAI(temperature=0.0,model="gpt-4",openai_api_key=os.getenv('OPEN_API_KEY'))
     sql_toolkit=SQLDatabaseToolkit(db=db,llm=llm)
     sql_toolkit.get_tools()
     prompt=ChatPromptTemplate.from_messages(prepare)
-    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True,max_execution_time=30,max_iterations=10,handle_parsing_errors=True)
+    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.OPENAI_FUNCTIONS,verbose=False,max_execution_time=60,max_iterations=50,handle_parsing_errors=True)
     result = agent.invoke(prompt.format_prompt(question=items.q))
     return (result)
 
@@ -202,12 +201,12 @@ async def authUploadfile(files: list[UploadFile],items:str = Form(...),Authoriza
         You are a very intelligent AI assistant who is an expert in identifying relevant questions from the user and converting them into SQL queries to generate correct answers.
         And if the user asks something related to the context below, please use the context below to write the SQL queries.
         Context:
-        I am {decode_jwt['username']}
+        this question is from user {decode_jwt['username']}
         You must query against the connected database, which has a total of 3 tables: USERS and COUNTRY and ACTIVITIES.
-        The USERS table has columns username, age, country and user_id. It provides user information.
+        The USERS table has columns username, age, and country. It provides user information.
         The COUNTRY table has columns id (foreign key with USERS table country column) and country_name. It provides country-specific information.
-        The ACTIVITIES table has columns id and user_id (foreign key with USERS table user_id column), topic and start_date. It provides activities to do each day.
-        As an expert, you don't have to create table, you must use updates, and inserts whenever required avoid using joins as much as possible and you can not show user's data from anyone except his data.
+        The ACTIVITIES table has columns id and username (foreign key with USERS table username column) and name and detail and due_date. It provides activities to do each day.  
+        As an expert, you must use joins, updates, and inserts whenever required and you can not show user's data from anyone except his data.
         make query performance fastest as you can.
         tell user a result even you got nothing tell him is nothing.
         """
@@ -236,14 +235,14 @@ async def authUploadfile(files: list[UploadFile],items:str = Form(...),Authoriza
         translation.text = translation.text +'ตอบเป็นภาษาไทย'
     prepare.append(("user","{question}"))
     
-    cs=os.getenv('SOURCE')
+    cs="mysql+pymysql://idewofktlttgg7nz:d1yjz40wualr5w69@dcrhg4kh56j13bnu.cbetxkdyhwsb.us-east-1.rds.amazonaws.com:3306/aoe1adeab51zt65c"
     # db_engine = create_engine(connectionString)
     db_engine=create_engine(cs)
     db=SQLDatabase(db_engine)
-    llm=ChatOpenAI(streaming=True,temperature=0.0,model="gpt-4",openai_api_key=os.getenv('OPEN_API_KEY'))
+    llm=ChatOpenAI(temperature=0.0,model="gpt-4",openai_api_key=os.getenv('OPEN_API_KEY'))
     sql_toolkit=SQLDatabaseToolkit(db=db,llm=llm)
     sql_toolkit.get_tools()
     prompt=ChatPromptTemplate.from_messages(prepare)
-    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=True,max_execution_time=30,max_iterations=10,handle_parsing_errors=True)
+    agent=create_sql_agent(llm=llm,toolkit=sql_toolkit,agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,verbose=False,max_execution_time=60,max_iterations=50,handle_parsing_errors=True)
     result = agent.invoke(prompt.format_prompt(question=translation.text))
     return (result)
