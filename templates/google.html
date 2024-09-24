@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Calendar</title>
+  <meta charset="utf-8" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f5f5f5;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .login-container {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+      text-align: center;
+      width: 300px;
+    }
+
+    .login-container h1 {
+      margin-bottom: 20px;
+    }
+
+    .login-button {
+      width: 100%;
+      padding: 10px;
+      border: none;
+      border-radius: 5px;
+      margin: 10px 0;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .google-button {
+      background-color: #4285F4;
+      color: white;
+    }
+
+    .google-button:disabled {
+      background-color: #2b58a0;
+      cursor: default;
+    }
+
+    #google_file {
+      display: none;
+    }
+
+    .microsoft-button {
+      background-color: #2F2F2F;
+      color: white;
+    }
+
+    .microsoft-button:disabled {
+      background-color: #6b6b6b;
+      color: white;
+      cursor: default;
+    }
+  </style>
+</head>
+
+<body>
+  <!--Add buttons to initiate auth sequence and sign out-->
+  <form action="/google/upload" enctype="multipart/form-data" method="post">
+    <div class="login-container">
+      <h1>Login</h1>
+      <button id="google_btn" class="login-button google-button" type="button" onclick="loginWithGoogle()">Login with
+        Google</button>
+      <input id="google_file" type="file" accept=".json">
+      <button id="google_sync" class="login-button google-button" type="button" onclick="handleAuthClick()">Sync with
+        google</button>
+      <button class="login-button microsoft-button" onclick="loginWithMicrosoft()" disabled>Login with Microsoft
+        365</button>
+    </div>
+  </form>
+
+  <pre id="content" style="white-space: pre-wrap;"></pre>
+
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script src="scripts.js"></script>
+  <script type="text/javascript">
+    /* exported gapiLoaded */
+    /* exported gisLoaded */
+    /* exported handleAuthClick */
+    /* exported handleSignoutClick */
+
+    // TODO(developer): Set to client ID and API key from the Developer Console
+    const CLIENT_ID = '1072241143702-td5u5l5e00trg8s0duls6vo7odvpchca.apps.googleusercontent.com';
+    const API_KEY = 'AIzaSyB9bBA_4leiCH7a3w0S87FTJ6euFoSC9z0';
+
+    // Discovery doc URL for APIs used by the quickstart
+    const DISCOVERY_DOC = 'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest';
+
+    // Authorization scopes required by the API; multiple scopes can be
+    // included, separated by spaces.
+    const SCOPES = 'https://www.googleapis.com/auth/calendar';
+
+    let tokenClient;
+    let gapiInited = false;
+    let gisInited = false;
+
+    /**
+     * Callback after api.js is loaded.
+     */
+    function gapiLoaded() {
+      gapi.load('client', initializeGapiClient);
+    }
+
+    /**
+     * Callback after the API client is loaded. Loads the
+     * discovery doc to initialize the API.
+     */
+    async function initializeGapiClient() {
+      await gapi.client.init({
+        apiKey: API_KEY,
+        discoveryDocs: [DISCOVERY_DOC],
+      });
+      gapiInited = true;
+    }
+
+    /**
+     * Callback after Google Identity Services are loaded.
+     */
+    function gisLoaded() {
+      tokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: SCOPES,
+        callback: '', // defined later
+      });
+      gisInited = true;
+    }
+
+    /**
+     * Enables user interaction after all libraries are loaded.
+     */
+    function maybeEnableButtons() {
+      if (gapiInited && gisInited) {
+        document.getElementById('authorize_button').style.visibility = 'visible';
+      }
+    }
+
+    /**
+     *  Sign in the user upon button click.
+     */
+    function handleAuthClick() {
+      tokenClient.callback = async (resp) => {
+        if (resp.error !== undefined) {
+          throw (resp);
+        }
+        await listUpcomingEvents();
+      };
+
+      if (gapi.client.getToken() === null) {
+        // Prompt the user to select a Google Account and ask for consent to share their data
+        // when establishing a new session.
+        tokenClient.requestAccessToken({ prompt: 'consent' });
+      } else {
+        // Skip display of account chooser and consent dialog for an existing session.
+        tokenClient.requestAccessToken({ prompt: '' });
+      }
+    }
+
+    /**
+     *  Sign out the user upon button click.
+     */
+    function handleSignoutClick() {
+      const token = gapi.client.getToken();
+      if (token !== null) {
+        google.accounts.oauth2.revoke(token.access_token);
+        gapi.client.setToken('');
+        document.getElementById('content').innerText = '';
+      }
+    }
+
+    /**
+     * Print the summary and start datetime/date of the next ten events in
+     * the authorized user's calendar. If no events are found an
+     * appropriate message is printed.
+     */
+    async function listUpcomingEvents() {
+      let response;
+      try {
+        const request = {
+          'calendarId': 'primary',
+          'timeMin': (new Date()).toISOString(),
+          'showDeleted': false,
+          'singleEvents': true,
+          'maxResults': 10,
+          'orderBy': 'startTime',
+        };
+        response = await gapi.client.calendar.events.list(request);
+        console.log(response)
+        axios.post('/google/start', { user: window.localStorage.getItem('_x'), datas: response.result.items })
+      } catch (err) {
+        document.getElementById('content').innerText = err.message;
+        return;
+      }
+
+      const events = response.result.items;
+      if (!events || events.length == 0) {
+        document.getElementById('content').innerText = 'No events found.';
+        return;
+      }
+      // Flatten to string to display
+      const output = events.reduce(
+        (str, event) => `${str}${event.summary} (${event.start.dateTime || event.start.date})\n`,
+        'Events:\n');
+      document.getElementById('content').innerText = output;
+    }
+  </script>
+  <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+  <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+</body>
+
+</html>
