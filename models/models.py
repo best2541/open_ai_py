@@ -43,3 +43,5 @@ class Remind(Base):
     appointment_minute = Column(Integer)
     routine = Column(Boolean) 
     sended = Column(Boolean)
+    google_check = Column(Boolean)
+    team_check = Column(Boolean)
